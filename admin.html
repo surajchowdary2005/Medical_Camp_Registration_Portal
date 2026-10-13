@@ -1,0 +1,281 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Camp - Admin Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        .dashboard-card {
+            background: white;
+            padding: 22px;
+            margin-bottom: 22px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px #00000012;
+        }
+
+        .dashboard-card h2 {
+            color: #087f8c;
+            margin-bottom: 15px;
+        }
+
+        #totalCount {
+            font-size: 36px;
+            font-weight: bold;
+            color: #087f8c;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th, td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        th {
+            background: #075e66;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background: #f4f8fb;
+        }
+
+        #statusMessage {
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Medical Camp Admin Dashboard</h1>
+        <p>Manage Patient Registrations</p>
+    </header>
+
+    <nav>
+        <a href="index.html">Home</a>
+        <a href="admin.html">Dashboard</a>
+    </nav>
+
+    <main>
+        <section class="dashboard-card">
+            <h2>Total Registrations</h2>
+            <p id="totalCount">Loading...</p>
+        </section>
+
+        <section class="dashboard-card">
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:15px;">
+    <h2 style="margin:0;">Registered Patients</h2>
+
+    <button type="button" id="refreshButton">
+        Refresh
+    </button>
+
+    <button type="button" id="downloadButton">
+        Download CSV
+    </button>
+</div>
+            <input
+                type="search"
+                id="searchInput"
+                placeholder="Search by name, registration ID, or phone"
+                aria-label="Search registrations"
+            >
+
+            <p id="statusMessage" role="status">Loading registrations...</p>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Registration ID</th>
+                            <th>Name</th>
+                            <th>Age</th>
+                            <th>Gender</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                            <th>Camp Date</th>
+                            <th>Address</th>
+                        </tr>
+                    </thead>
+                    <tbody id="registrationTable"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 Medical Camp Registration Portal</p>
+    </footer>
+
+    <script>
+        const tableBody = document.getElementById("registrationTable");
+        const totalCount = document.getElementById("totalCount");
+        const searchInput = document.getElementById("searchInput");
+        const statusMessage = document.getElementById("statusMessage");
+
+        let registrations = [];
+
+        document.getElementById("refreshButton").addEventListener("click", function () {
+    loadRegistrations();
+});
+
+document.getElementById("downloadButton").addEventListener("click", function () {
+    if (registrations.length === 0) {
+        alert("No registrations available to download.");
+        return;
+    }
+
+    const headers = [
+        "Registration ID",
+        "Name",
+        "Age",
+        "Gender",
+        "Phone",
+        "Email",
+        "Camp Date",
+        "Address"
+    ];
+
+    const rows = registrations.map(function (item) {
+        return [
+            item.id,
+            item.name,
+            item.age,
+            item.gender,
+            item.phone,
+            item.email,
+            item.date,
+            item.address
+        ];
+    });
+
+    function escapeCSV(value) {
+        let text = String(value ?? "");
+
+        // Prevent spreadsheet formula injection.
+        if (/^[\s]*[=+\-@]/.test(text)) {
+            text = "'" + text;
+        }
+
+        return '"' + text.replace(/"/g, '""') + '"';
+    }
+
+    const csv = [headers, ...rows]
+        .map(row => row.map(escapeCSV).join(","))
+        .join("\r\n");
+
+    const blob = new Blob(["\uFEFF" + csv], {
+        type: "text/csv;charset=utf-8;"
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "medical_camp_registrations.csv";
+    link.click();
+
+    URL.revokeObjectURL(url);
+});
+
+        async function loadRegistrations() {
+            try {
+                const response = await fetch("/api/registrations");
+
+                if (!response.ok) {
+                    throw new Error("Could not load registrations.");
+                }
+
+                registrations = await response.json();
+                totalCount.textContent = registrations.length;
+                statusMessage.textContent = "";
+                displayRegistrations(registrations);
+
+            } catch (error) {
+                totalCount.textContent = "—";
+                statusMessage.textContent =
+                    "Unable to load registrations. Please check the server.";
+            }
+        }
+
+        function displayRegistrations(items) {
+            tableBody.replaceChildren();
+
+            if (items.length === 0) {
+                statusMessage.textContent = "No matching registrations found.";
+                return;
+            }
+
+            statusMessage.textContent = "";
+
+            items.forEach(function (item) {
+                const row = document.createElement("tr");
+
+                const values = [
+                    item.id,
+                    item.name,
+                    item.age,
+                    item.gender,
+                    item.phone,
+                    item.email,
+                    item.date,
+                    item.address
+                ];
+
+                values.forEach(function (value) {
+                    const cell = document.createElement("td");
+                    cell.textContent = value ?? "";
+                    row.appendChild(cell);
+                });
+
+                tableBody.appendChild(row);
+            });
+        }
+
+        searchInput.addEventListener("input", function () {
+            const query = searchInput.value.trim().toLowerCase();
+
+            const filtered = registrations.filter(function (item) {
+                return [
+                    item.id,
+                    item.name,
+                    item.phone
+                ].some(function (value) {
+                    return String(value ?? "")
+                        .toLowerCase()
+                        .includes(query);
+                });
+            });
+
+            displayRegistrations(filtered);
+        });
+
+        loadRegistrations();
+    </script>
+
+</body>
+</html>
+```
