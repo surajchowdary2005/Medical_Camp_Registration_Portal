@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 const dataDirectory = path.join(__dirname, "data");
 const dataFile = path.join(dataDirectory, "registrations.json");
